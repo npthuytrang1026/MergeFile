@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF & Image Merger</title>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f2f7;
+      min-height: 100vh;
+      padding: 28px 20px;
+      color: #1e293b;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    /* ── Header ── */
+    header { text-align: center; margin-bottom: 32px; }
+    header h1 { font-size: 2rem; font-weight: 800; color: #1e293b; margin-bottom: 6px; }
+    header p  { color: #64748b; font-size: 0.95rem; }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      border: 2px dashed #c7d2e8;
+      border-radius: 18px;
+      background: #fff;
+      padding: 44px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: #6366f1;
+      background: #f5f3ff;
+    }
+    .upload-icon { font-size: 52px; margin-bottom: 14px; }
+    .upload-zone h2 { font-size: 1.2rem; color: #1e293b; margin-bottom: 8px; }
+    .upload-zone p  { color: #94a3b8; font-size: 0.88rem; margin-bottom: 18px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 22px; border-radius: 9px; font-size: .9rem;
+      font-weight: 600; cursor: pointer; border: none;
+      transition: background .15s, transform .1s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary  { background: #6366f1; color: #fff; }
+    .btn-primary:hover  { background: #4f46e5; }
+    .btn-outline  { background: #fff; color: #6366f1; border: 2px solid #6366f1; }
+    .btn-outline:hover  { background: #f5f3ff; }
+    .btn-danger   { background: #fff; color: #ef4444; border: 2px solid #fecaca; }
+    .btn-danger:hover   { background: #fff1f1; }
+    .btn-success  { background: #10b981; color: #fff; font-size: 1rem; padding: 14px 36px; }
+    .btn-success:hover  { background: #059669; }
+    .btn-success:disabled { background: #9ca3af; cursor: not-allowed; transform: none; }
+
+    /* ── Section ── */
+    .section-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 8px;
+    }
+    .section-header h2 { font-size: 1.05rem; font-weight: 700; }
+    .section-meta      { color: #64748b; font-size: .82rem; margin-bottom: 14px; }
+
+    .badge {
+      background: #e0e7ff; color: #6366f1;
+      padding: 4px 12px; border-radius: 20px;
+      font-size: .78rem; font-weight: 700;
+    }
+
+    /* ── Pages grid ── */
+    #pagesGrid {
+      display: flex; flex-wrap: wrap; gap: 12px;
+      background: #fff; border-radius: 18px;
+      padding: 20px; margin-bottom: 24px;
+      min-height: 120px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    #pagesGrid.is-empty {
+      align-items: center; justify-content: center;
+      border: 2px dashed #e2e8f0; box-shadow: none; background: transparent;
+    }
+    .empty-hint { color: #94a3b8; text-align: center; font-size: .9rem; }
+
+    /* ── Page card ── */
+    .page-card {
+      width: 138px;
+      background: #fff; border-radius: 12px;
+      border: 2px solid #e2e8f0;
+      overflow: visible; cursor: grab;
+      transition: box-shadow .18s, transform .18s, border-color .18s, opacity .18s;
+      user-select: none; position: relative;
+    }
+    .page-card:hover {
+      border-color: #6366f1;
+      box-shadow: 0 6px 18px rgba(99,102,241,.2);
+      transform: translateY(-3px);
+    }
+    .page-card.excluded {
+      opacity: .35;
+      border-style: dashed;
+      border-color: #cbd5e1;
+    }
+    .page-card .thumb-wrap {
+      width: 100%; height: 164px;
+      background: #f8fafc;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 10px 10px 0 0;
+      overflow: hidden;
+    }
+    .page-card .thumb-wrap img {
+      width: 100%; height: 100%; object-fit: contain; display: block;
+    }
+    .page-card .thumb-icon { font-size: 44px; }
+    .page-card .card-info {
+      padding: 7px 9px 8px;
+      border-top: 1px solid #f1f5f9;
+    }
+    .page-card .page-label  { font-size: .75rem; font-weight: 700; color: #1e293b; }
+    .page-card .file-name {
+      font-size: .68rem; color: #64748b;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 120px;
+    }
+
+    /* remove button */
+    .page-card .remove-btn {
+      position: absolute; top: -8px; right: -8px;
+      width: 22px; height: 22px;
+      background: #ef4444; color: #fff;
+      border: none; border-radius: 50%;
+      font-size: 11px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .15s;
+      box-shadow: 0 1px 4px rgba(0,0,0,.25);
+      z-index: 10;
+    }
+    .page-card:hover .remove-btn { opacity: 1; }
+
+    /* order badge */
+    .page-card .order-badge {
+      position: absolute; top: 6px; left: 6px;
+      background: rgba(99,102,241,.88); color: #fff;
+      border-radius: 5px; padding: 1px 7px;
+      font-size: .68rem; font-weight: 800;
+      pointer-events: none;
+    }
+    .page-card.excluded .order-badge {
+      background: rgba(148,163,184,.8);
+    }
+
+    /* ── Sortable states ── */
+    .sortable-ghost   { opacity: .25; background: #e0e7ff; }
+    .sortable-chosen  { cursor: grabbing; }
+    .sortable-drag    { box-shadow: 0 12px 30px rgba(0,0,0,.18); }
+
+    /* ── Merge bar ── */
+    .merge-bar {
+      display: flex; align-items: center; justify-content: center;
+      gap: 18px; flex-wrap: wrap;
+      background: #fff; border-radius: 18px; padding: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    .merge-info { color: #64748b; font-size: .9rem; }
+    .merge-info strong { color: #1e293b; }
+
+    /* ── Loading overlay ── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(15,23,42,.35); z-index: 999;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(2px);
+    }
+    .overlay.active { display: flex; }
+    .spinner-box {
+      background: #fff; border-radius: 18px; padding: 36px 48px;
+      text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 4px solid #e2e8f0; border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+      margin: 0 auto 16px;
+    }
+    .spinner-label { font-size: .95rem; color: #64748b; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 28px; right: 28px;
+      padding: 13px 22px; border-radius: 10px; color: #fff;
+      font-size: .9rem; font-weight: 600; z-index: 1200;
+      transform: translateY(80px); opacity: 0;
+      transition: transform .3s, opacity .3s;
+      box-shadow: 0 6px 20px rgba(0,0,0,.2);
+      max-width: 320px;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: #10b981; }
+    .toast.error   { background: #ef4444; }
+    .toast.info    { background: #6366f1; }
+
+    input[type="file"] { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="overlay" id="overlay">
+  <div class="spinner-box">
+    <div class="spinner"></div>
+    <div class="spinner-label" id="spinnerLabel">Đang xử lý...</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<div class="container">
+  <header>
+    <h1>PDF &amp; Image Merger</h1>
+    <p>Gộp ảnh và PDF thành 1 file PDF · Kéo để sắp xếp thứ tự trang tùy ý</p>
+  </header>
+
+  <!-- Upload zone -->
+  <div class="upload-zone" id="uploadZone">
+    <div class="upload-icon">📂</div>
+    <h2>Kéo &amp; thả file vào đây</h2>
+    <p>Hỗ trợ: PDF, PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP · Tối đa 200 MB</p>
+    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+      ＋ Chọn file
+    </button>
+    <input type="file" id="fileInput" multiple
+      accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.tiff,.webp" />
+  </div>
+
+  <!-- Pages section -->
+  <div id="pagesSection" style="display:none">
+    <div class="section-header">
+      <h2>Thứ tự trang</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="badge" id="pageCountBadge">0 trang</span>
+        <button class="btn btn-outline" onclick="selectAll()">Chọn tất cả</button>
+        <button class="btn btn-danger"  onclick="clearAll()">Xóa tất cả</button>
+      </div>
+    </div>
+    <p class="section-meta">
+      Kéo thả để sắp xếp &nbsp;·&nbsp;
+      Nhấn vào trang để bỏ / chọn &nbsp;·&nbsp;
+      Nhấn ✕ để xóa vĩnh viễn
+    </p>
+    <div id="pagesGrid" class="is-empty">
+      <div class="empty-hint" id="emptyHint">Chưa có trang nào</div>
+    </div>
+  </div>
+
+  <!-- Merge bar -->
+  <div id="mergeBar" style="display:none">
+    <div class="merge-bar">
+      <div class="merge-info" id="mergeInfo">0 trang được chọn</div>
+      <button class="btn btn-success" id="mergeBtn" onclick="mergePDF()">
+        ⬇ Tải xuống PDF đã gộp
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let sortable = null;
+
+  /* ─── Drag-and-drop for upload zone ─── */
+  const uploadZone = document.getElementById("uploadZone");
+  uploadZone.addEventListener("dragover", e => { e.preventDefault(); uploadZone.classList.add("dragover"); });
+  uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+  uploadZone.addEventListener("drop", e => {
+    e.preventDefault();
+    uploadZone.classList.remove("dragover");
+    handleFiles(e.dataTransfer.files);
+  });
+  document.getElementById("fileInput").addEventListener("change", e => {
+    handleFiles(e.target.files);
+    e.target.value = "";
+  });
+
+  /* ─── Upload files ─── */
+  async function handleFiles(files) {
+    if (!files.length) return;
+    showOverlay("Đang tải lên và tạo xem trước...");
+    const fd = new FormData();
+    for (const f of files) fd.append("files", f);
+    try {
+      const res = await fetch("/upload", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Lỗi server khi tải file");
+      const list = await res.json();
+      if (!list.length) { toast("Không có file hợp lệ nào được tải lên", "error"); return; }
+      let added = 0;
+      for (const file of list) { addFileCards(file); added += file.pages.length; }
+      updateUI();
+      toast(`Đã thêm ${added} trang từ ${list.length} file`, "success");
+    } catch (e) {
+      toast("Lỗi: " + e.message, "error");
+    } finally {
+      hideOverlay();
+    }
+  }
+
+  /* ─── Build page cards for one file ─── */
+  function addFileCards(file) {
+    const grid = document.getElementById("pagesGrid");
+    for (const page of file.pages) {
+      const card = document.createElement("div");
+      card.className = "page-card";
+      card.dataset.fileId  = file.file_id;
+      card.dataset.pageNum = page.page_num;
+      card.dataset.fileType = file.type;
+      card.dataset.fileName = file.name;
+
+      const icon = file.type === "pdf" ? "📄" : "🖼️";
+      const thumbHtml = page.thumbnail
+        ? `<img src="${page.thumbnail}" alt="p${page.page_num + 1}"
+               onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'thumb-icon',textContent:'${icon}'}))">`
+        : `<span class="thumb-icon">${icon}</span>`;
+
+      const pageLabel = (file.type === "pdf" && file.pages.length > 1)
+        ? `Trang ${page.page_num + 1} / ${file.pages.length}`
+        : "Trang 1";
+      const shortName = file.name.length > 18
+        ? file.name.slice(0, 15) + "…"
+        : file.name;
+
+      card.innerHTML = `
+        <span class="order-badge">1</span>
+        <div class="thumb-wrap">${thumbHtml}</div>
+        <div class="card-info">
+          <div class="page-label">${pageLabel}</div>
+          <div class="file-name" title="${file.name}">${shortName}</div>
+        </div>
+        <button class="remove-btn" title="Xóa trang này">✕</button>
+      `;
+
+      card.querySelector(".remove-btn").addEventListener("click", e => {
+        e.stopPropagation();
+        card.remove();
+        updateUI();
+      });
+      card.addEventListener("click", () => {
+        card.classList.toggle("excluded");
+        updateBadges();
+        updateMergeInfo();
+      });
+
+      grid.appendChild(card);
+    }
+  }
+
+  /* ─── Update order badges ─── */
+  function updateBadges() {
+    let n = 1;
+    document.querySelectorAll("#pagesGrid .page-card").forEach(c => {
+      const b = c.querySelector(".order-badge");
+      if (c.classList.contains("excluded")) {
+        b.textContent = "—";
+      } else {
+        b.textContent = n++;
+      }
+    });
+  }
+
+  /* ─── Update merge info text & button state ─── */
+  function updateMergeInfo() {
+    const total   = document.querySelectorAll("#pagesGrid .page-card").length;
+    const active  = document.querySelectorAll("#pagesGrid .page-card:not(.excluded)").length;
+    document.getElementById("mergeInfo").innerHTML =
+      `<strong>${active}</strong> / ${total} trang được chọn`;
+    document.getElementById("mergeBtn").disabled = (active === 0);
+
+    const badge = document.getElementById("pageCountBadge");
+    badge.textContent = active === total ? `${total} trang` : `${active}/${total} trang`;
+  }
+
+  /* ─── Update whole UI ─── */
+  function updateUI() {
+    const total = document.querySelectorAll("#pagesGrid .page-card").length;
+    const grid  = document.getElementById("pagesGrid");
+    const hint  = document.getElementById("emptyHint");
+
+    document.getElementById("pagesSection").style.display = total > 0 ? "block" : "none";
+    document.getElementById("mergeBar").style.display     = total > 0 ? "block" : "none";
+
+    if (total === 0) {
+      grid.classList.add("is-empty");
+      if (!hint.parentNode) grid.appendChild(hint);
+      if (sortable) { sortable.destroy(); sortable = null; }
+    } else {
+      grid.classList.remove("is-empty");
+      if (hint.parentNode) hint.parentNode.removeChild(hint);
+      if (!sortable) {
+        sortable = Sortable.create(grid, {
+          animation: 150,
+          ghostClass: "sortable-ghost",
+          chosenClass: "sortable-chosen",
+          dragClass: "sortable-drag",
+          onEnd: () => { updateBadges(); updateMergeInfo(); },
+        });
+      }
+    }
+    updateBadges();
+    updateMergeInfo();
+  }
+
+  /* ─── Select all / clear all ─── */
+  function selectAll() {
+    document.querySelectorAll("#pagesGrid .page-card.excluded").forEach(c => c.classList.remove("excluded"));
+    updateBadges(); updateMergeInfo();
+  }
+  function clearAll() {
+    document.getElementById("pagesGrid").innerHTML = "";
+    updateUI();
+  }
+
+  /* ─── Merge ─── */
+  async function mergePDF() {
+    const cards = Array.from(document.querySelectorAll("#pagesGrid .page-card:not(.excluded)"));
+    if (!cards.length) { toast("Không có trang nào được chọn!", "error"); return; }
+
+    const pages = cards.map(c => ({
+      file_id:   c.dataset.fileId,
+      page_num:  parseInt(c.dataset.pageNum, 10),
+    }));
+
+    showOverlay(`Đang gộp ${pages.length} trang...`);
+    document.getElementById("mergeBtn").disabled = true;
+
+    try {
+      const res = await fetch("/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pages }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Merge thất bại");
+      }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = Object.assign(document.createElement("a"), { href: url, download: "merged.pdf" });
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(`Đã gộp ${pages.length} trang thành công!`, "success");
+    } catch (e) {
+      toast("Lỗi: " + e.message, "error");
+    } finally {
+      hideOverlay();
+      document.getElementById("mergeBtn").disabled = false;
+    }
+  }
+
+  /* ─── Overlay helpers ─── */
+  function showOverlay(label) {
+    document.getElementById("spinnerLabel").textContent = label;
+    document.getElementById("overlay").classList.add("active");
+  }
+  function hideOverlay() {
+    document.getElementById("overlay").classList.remove("active");
+  }
+
+  /* ─── Toast ─── */
+  let toastTimer = null;
+  function toast(msg, type = "info") {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.className = `toast ${type} show`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 3500);
+  }
+
+  /* Init */
+  updateUI();
+</script>
+</body>
+</html>
