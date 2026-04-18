@@ -1,6 +1,7 @@
 import os
 import uuid
 import io
+import tempfile
 from flask import Flask, render_template, request, jsonify, send_file
 from PIL import Image
 import pypdf
@@ -8,8 +9,8 @@ import pypdf
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200 MB
 
-UPLOAD_FOLDER = "/tmp/merge_uploads"
-THUMB_FOLDER = "/tmp/merge_thumbs"
+UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), "merge_uploads")
+THUMB_FOLDER = os.path.join(tempfile.gettempdir(), "merge_thumbs")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(THUMB_FOLDER, exist_ok=True)
 
