@@ -387,21 +387,22 @@
   }
 
   /* ─── Update whole UI ─── */
+  const emptyHint = document.getElementById("emptyHint");
+
   function updateUI() {
     const total = document.querySelectorAll("#pagesGrid .page-card").length;
     const grid  = document.getElementById("pagesGrid");
-    const hint  = document.getElementById("emptyHint");
 
     document.getElementById("pagesSection").style.display = total > 0 ? "block" : "none";
     document.getElementById("mergeBar").style.display     = total > 0 ? "block" : "none";
 
     if (total === 0) {
       grid.classList.add("is-empty");
-      if (!hint.parentNode) grid.appendChild(hint);
+      emptyHint.style.display = "block";
       if (sortable) { sortable.destroy(); sortable = null; }
     } else {
       grid.classList.remove("is-empty");
-      if (hint.parentNode) hint.parentNode.removeChild(hint);
+      emptyHint.style.display = "none";
       if (!sortable) {
         sortable = Sortable.create(grid, {
           animation: 150,
